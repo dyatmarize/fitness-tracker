@@ -1,0 +1,45 @@
+services:
+  db:
+    image: postgres:17
+    environment:
+      POSTGRES_USER: fitness
+      POSTGRES_PASSWORD: fitness
+      POSTGRES_DB: fitness
+    ports:
+      - "127.0.0.1:5440:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U fitness -d fitness"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+    restart: unless-stopped
+
+  backend:
+    build: ../backend
+    environment:
+      DATABASE_URL: postgres://fitness:fitness@db:5432/fitness?sslmode=disable
+      COROS_MCP_URL: ${COROS_MCP_URL:-https://mcpus.coros.com/mcp}
+      APP_TOKEN: ${APP_TOKEN:-}
+      SYNC_INTERVAL: ${SYNC_INTERVAL:-1h}
+      AUTH_LISTEN_ADDR: ":8787"
+      TZ: Asia/Jakarta
+    ports:
+      - "127.0.0.1:8080:8080"
+      - "127.0.0.1:8787:8787"
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
+  web:
+    build: ../web
+    ports:
+      - "8090:80"
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+volumes:
+  pgdata:
